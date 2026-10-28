@@ -1,0 +1,9 @@
+[package]
+name = "format"
+description = "The installer script (installer.toml) and what bi packs into a setup"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true

@@ -1,0 +1,17 @@
+[package]
+name = "bi"
+description = "Builds a setup from an installer.toml"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+format.workspace = true
+lzma-rust2 = { workspace = true, features = ["encoder"] }
+serde.workspace = true
+serde_json.workspace = true
+toml = "0.8.23"
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }
+
+[build-dependencies]
+embed-resource = "3.0.12"

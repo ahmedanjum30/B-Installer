@@ -1,0 +1,106 @@
+# BDownloader's installer, the same as installer\bdownloader.iss. Meant to sit in BDownloader's
+# installer folder:
+#
+#   bi installer\bdownloader.toml -D version=1.0.0
+#
+# Paths, those given with -D too, are relative to this file; bindir defaults to target\release.
+#
+# Installs for the current user only (no admin prompt), into %LOCALAPPDATA%\Programs\BDownloader.
+
+[defines]
+version = "0.0.0"
+root = ".."
+bindir = "..\\target\\release"
+
+[app]
+# Never change it: it's the AppId of the Inno Setup installs this one updates.
+id = "6A1E3C52-8F0B-4D7E-9B2A-5C4F1D3E7A90"
+name = "BDownloader"
+version = "${version}"
+publisher = "Ahmad Anjum"
+url = "https://github.com/ahmedanjum30/BDownloader"
+support_url = "https://github.com/ahmedanjum30/BDownloader/issues"
+dir = '{pf}\BDownloader'
+uninstall_icon = '{app}\BDownloader.exe'
+icon = '${root}\crates\app\assets\bdownloader.ico'
+license = '${root}\LICENSE'
+output = '${root}\dist\BDownloader-Setup-${version}.exe'
+
+# Versions before 1.0.11 shipped the Firefox add-on; it's on Firefox Add-ons now.
+delete = ['{app}\bdownloader-firefox.xpi']
+
+[[task]]
+name = "desktopicon"
+label = "Create a desktop shortcut"
+
+[[file]]
+source = '${bindir}\BDownloader.exe'
+dest = '{app}'
+
+[[file]]
+source = '${bindir}\bdl-host.exe'
+dest = '{app}'
+
+[[file]]
+source = '${root}\extension'
+dest = '{app}\extension'
+
+[[file]]
+source = '${root}\LICENSE'
+dest = '{app}'
+rename = "LICENSE.txt"
+
+[[file]]
+source = '${root}\PRIVACY.md'
+dest = '{app}'
+
+[[shortcut]]
+path = '{programs}\BDownloader'
+target = '{app}\BDownloader.exe'
+
+[[shortcut]]
+path = '{desktop}\BDownloader'
+target = '{app}\BDownloader.exe'
+task = "desktopicon"
+
+# The Edge Add-ons ID, the same as EDGE_STORE_ID in crates\app\src\browser.rs: Edge offers to
+# add the extension the next time it starts. Add the same for Chrome once it's on the Chrome
+# Web Store (Software\Google\Chrome\Extensions\<id>, https://clients2.google.com/service/update2/crx).
+[[registry]]
+root = "HKCU"
+key = 'Software\Microsoft\Edge\Extensions\kfbjnlpmchkeaphhdeidpdpcomoohdfa'
+name = "update_url"
+value = "https://edge.microsoft.com/extensionwebstorebase/v1/crx"
+uninstall = "key"
+
+# The app always runs as the user, never as the administrator an install for everyone runs
+# as: the browser can't reach a BDownloader running as administrator, and its settings are the
+# user's. Lets the browser extension reach the app, even before the app is first opened.
+[[run]]
+file = '{app}\BDownloader.exe'
+args = "--register"
+hidden = true
+as_user = true
+
+[[run]]
+file = '{app}\BDownloader.exe'
+launch = true
+
+# Updates started from the app (/UPDATE=1 or 2) bring it back afterwards; 2 means in the tray.
+[[run]]
+file = '{app}\BDownloader.exe'
+if_param = "UPDATE=1"
+wait = false
+as_user = true
+
+[[run]]
+file = '{app}\BDownloader.exe'
+args = "--background"
+if_param = "UPDATE=2"
+wait = false
+as_user = true
+
+[[uninstall_run]]
+file = '{app}\BDownloader.exe'
+args = "--unregister"
+hidden = true

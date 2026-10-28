@@ -158,11 +158,13 @@ pub struct Existing {
 
 pub fn find_existing(id: &str) -> Option<Existing> {
     let key = uninstall_key(id);
-    [(HKEY_CURRENT_USER, false), (HKEY_LOCAL_MACHINE, true)].into_iter().find_map(|(root, machine)| {
-        let dir = PathBuf::from(sys::get_string(root, &key, Some("InstallLocation"))?.trim_end_matches('\\'));
-        let tasks = Log::read(&dir).map(|log| log.tasks);
-        Some(Existing { dir, machine, tasks })
-    })
+    [(HKEY_CURRENT_USER, false), (HKEY_LOCAL_MACHINE, true)]
+        .into_iter()
+        .find_map(|(root, machine)| {
+            let dir = PathBuf::from(sys::get_string(root, &key, Some("InstallLocation"))?.trim_end_matches('\\'));
+            let tasks = Log::read(&dir).map(|log| log.tasks);
+            Some(Existing { dir, machine, tasks })
+        })
 }
 
 pub fn default_dir(m: &Manifest, machine: bool, existing: Option<&Existing>) -> PathBuf {
@@ -231,12 +233,15 @@ pub fn install(m: &Manifest, payload: &[u8], o: &Options, progress: &mut dyn FnM
             RegValue::Dword(v) => sys::set_dword(sys::root(root), &r.key, name, *v)?,
         }
         if r.uninstall != Uninstall::Keep {
-            push(&mut log.registry, RegEntry {
-                root: root.to_string(),
-                key: r.key.clone(),
-                name: r.name.clone(),
-                tree: r.uninstall == Uninstall::Key,
-            });
+            push(
+                &mut log.registry,
+                RegEntry {
+                    root: root.to_string(),
+                    key: r.key.clone(),
+                    name: r.name.clone(),
+                    tree: r.uninstall == Uninstall::Key,
+                },
+            );
         }
     }
 
@@ -248,12 +253,17 @@ pub fn install(m: &Manifest, payload: &[u8], o: &Options, progress: &mut dyn FnM
     }
     progress(0.95);
 
-    log.uninstall_run = m.uninstall_run.iter().filter(|r| o.wants(&r.task)).map(|r| LoggedRun {
-        file: f.path(&r.file),
-        args: f.expand(&r.args),
-        hidden: r.hidden,
-        wait: r.wait,
-    }).collect();
+    log.uninstall_run = m
+        .uninstall_run
+        .iter()
+        .filter(|r| o.wants(&r.task))
+        .map(|r| LoggedRun {
+            file: f.path(&r.file),
+            args: f.expand(&r.args),
+            hidden: r.hidden,
+            wait: r.wait,
+        })
+        .collect();
     write_uninstaller(m, app, o.machine, &f, &log, total)?;
 
     sys::notify_associations();
@@ -337,7 +347,9 @@ fn write_file(dest: &Path, data: &mut impl Read) -> Result<(), String> {
 
 /// Deletes the files matching `pattern`: `*` and `?` in its last part.
 fn delete_matching(pattern: &Path) {
-    let (Some(dir), Some(name)) = (pattern.parent(), pattern.file_name()) else { return };
+    let (Some(dir), Some(name)) = (pattern.parent(), pattern.file_name()) else {
+        return;
+    };
     let name = name.to_string_lossy().to_lowercase();
     let Ok(entries) = fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
@@ -379,7 +391,11 @@ fn add_to_path(machine: bool, dir: &str) -> Result<bool, String> {
     if path.split(';').any(|p| same_dir(p, dir)) {
         return Ok(false);
     }
-    let path = if path.is_empty() || path.ends_with(';') { format!("{path}{dir}") } else { format!("{path};{dir}") };
+    let path = if path.is_empty() || path.ends_with(';') {
+        format!("{path}{dir}")
+    } else {
+        format!("{path};{dir}")
+    };
     sys::set_string(root, key, Some("Path"), &path, true)?;
     Ok(true)
 }
@@ -410,7 +426,12 @@ fn write_uninstaller(m: &Manifest, app: &Path, machine: bool, f: &Folders, log: 
     // Starts clean, which also drops what Inno Setup kept there.
     sys::delete_tree(root, &key);
     let quoted = format!("\"{}\"", exe.display());
-    let icon = m.app.uninstall_icon.as_deref().map(|i| f.expand(i)).unwrap_or_else(|| exe.display().to_string());
+    let icon = m
+        .app
+        .uninstall_icon
+        .as_deref()
+        .map(|i| f.expand(i))
+        .unwrap_or_else(|| exe.display().to_string());
     let strings = [
         ("DisplayName", m.app.name.clone()),
         ("DisplayVersion", m.app.version.clone()),

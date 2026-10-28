@@ -1,0 +1,80 @@
+name: CI
+
+# Only run when code or build settings change; docs-only commits skip CI.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "assets/bi.ico"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rustfmt.toml"
+      - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "crates/**"
+      - "assets/bi.ico"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rustfmt.toml"
+      - ".github/workflows/**"
+  workflow_dispatch:
+  # The release workflow runs these checks before building.
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
+      # A setup built from examples\ and installed and uninstalled for real (per user, silently).
+      - name: Install and uninstall a setup
+        shell: pwsh
+        run: |
+          cargo build --release --locked
+          $work = Join-Path $env:RUNNER_TEMP 'smoke'
+          New-Item -ItemType Directory -Force $work | Out-Null
+          @"
+          [app]
+          id = "00000000-0000-0000-0000-00000000b1b1"
+          name = "BI Smoke"
+          version = "1.0.0"
+          dir = '{pf}\BI Smoke'
+          output = 'smoke-setup.exe'
+
+          [[file]]
+          source = '$((Resolve-Path README.md).Path)'
+          dest = '{app}'
+
+          [[registry]]
+          root = "HKA"
+          key = 'Software\BI-Smoke'
+          name = "Dir"
+          value = '{app}'
+          "@ | Set-Content "$work\smoke.toml"
+          ./target/release/bi.exe "$work\smoke.toml"
+          if ($LASTEXITCODE -ne 0) { throw 'bi failed' }
+          $app = "$work\app"
+          $p = Start-Process "$work\smoke-setup.exe" -ArgumentList '/VERYSILENT', "/DIR=$app" -Wait -PassThru
+          if ($p.ExitCode -ne 0 -or -not (Test-Path "$app\README.md") -or -not (Test-Path 'HKCU:\Software\BI-Smoke')) { throw 'install failed' }
+          Start-Process "$app\unins000.exe" -ArgumentList '/VERYSILENT' -Wait
+          $deadline = (Get-Date).AddSeconds(30)
+          while ((Test-Path $app) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+          if ((Test-Path $app) -or (Test-Path 'HKCU:\Software\BI-Smoke')) { throw 'uninstall left things behind' }

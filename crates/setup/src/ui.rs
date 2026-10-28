@@ -11,16 +11,22 @@ use format::{Manifest, Scope};
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM},
-        Graphics::Gdi::{COLOR_GRAYTEXT, COLOR_WINDOW, CreateFontIndirectW, GetSysColor, GetSysColorBrush, HDC, HFONT, SetBkMode, SetTextColor, TRANSPARENT},
+        Graphics::Gdi::{
+            COLOR_GRAYTEXT, COLOR_WINDOW, CreateFontIndirectW, GetSysColor, GetSysColorBrush, HDC, HFONT, SetBkMode, SetTextColor, TRANSPARENT,
+        },
         System::{
             Com::{CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree},
             LibraryLoader::GetModuleHandleW,
         },
         UI::{
-            Controls::{ICC_LINK_CLASS, ICC_PROGRESS_CLASS, ICC_STANDARD_CLASSES, INITCOMMONCONTROLSEX, InitCommonControlsEx, NM_CLICK, NM_RETURN, NMHDR},
+            Controls::{
+                ICC_LINK_CLASS, ICC_PROGRESS_CLASS, ICC_STANDARD_CLASSES, INITCOMMONCONTROLSEX, InitCommonControlsEx, NM_CLICK, NM_RETURN, NMHDR,
+            },
             HiDpi::GetDpiForSystem,
             Input::KeyboardAndMouse::{EnableWindow, SetFocus},
-            Shell::{FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, SIGDN_FILESYSPATH},
+            Shell::{
+                FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, SIGDN_FILESYSPATH,
+            },
             WindowsAndMessaging::*,
         },
     },
@@ -120,12 +126,33 @@ pub fn run(m: Manifest, payload: &'static [u8], o: Options, existing: Option<Exi
         RegisterClassW(&class);
         let style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
         let title = HSTRING::from(format!("{} Setup", m.app.name));
-        let Ok(hwnd) = CreateWindowExW(WINDOW_EX_STYLE(0), w!("BInstallerSetup"), &title, style, 0, 0, 0, 0, None, None, Some(instance.into()), None) else {
+        let Ok(hwnd) = CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            w!("BInstallerSetup"),
+            &title,
+            style,
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            Some(instance.into()),
+            None,
+        ) else {
             return 1;
         };
 
-        let mut ncm = NONCLIENTMETRICSW { cbSize: size_of::<NONCLIENTMETRICSW>() as u32, ..Default::default() };
-        let _ = SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, ncm.cbSize, Some(&mut ncm as *mut _ as _), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0));
+        let mut ncm = NONCLIENTMETRICSW {
+            cbSize: size_of::<NONCLIENTMETRICSW>() as u32,
+            ..Default::default()
+        };
+        let _ = SystemParametersInfoW(
+            SPI_GETNONCLIENTMETRICS,
+            ncm.cbSize,
+            Some(&mut ncm as *mut _ as _),
+            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+        );
         let font = CreateFontIndirectW(&ncm.lfMessageFont);
         let mut big = ncm.lfMessageFont;
         big.lfHeight *= 2;
@@ -141,7 +168,15 @@ pub fn run(m: Manifest, payload: &'static [u8], o: Options, existing: Option<Exi
         let subtitle = c(w!("STATIC"), &subtitle, SS_NOPREFIX, 0);
         GRAY.set(subtitle.0 as isize);
         let dir_label = c(w!("STATIC"), "Install to", SS_NOPREFIX, 0);
-        let dir = child_ex(hwnd, WS_EX_CLIENTEDGE, w!("EDIT"), &o.dir.display().to_string(), ES_AUTOHSCROLL | WS_TABSTOP.0, ID_DIR, font);
+        let dir = child_ex(
+            hwnd,
+            WS_EX_CLIENTEDGE,
+            w!("EDIT"),
+            &o.dir.display().to_string(),
+            ES_AUTOHSCROLL | WS_TABSTOP.0,
+            ID_DIR,
+            font,
+        );
         let browse = c(w!("BUTTON"), "Browse...", WS_TABSTOP.0, ID_BROWSE);
         let mut checks = Vec::new();
         for (i, task) in m.tasks.iter().enumerate() {
@@ -150,7 +185,12 @@ pub fn run(m: Manifest, payload: &'static [u8], o: Options, existing: Option<Exi
             checks.push(check);
         }
         let all_users = (m.app.scope == Scope::Ask).then(|| {
-            let check = c(w!("BUTTON"), "Install for everyone on this PC (asks for administrator rights)", BS_AUTOCHECKBOX | WS_TABSTOP.0, ID_ALL_USERS);
+            let check = c(
+                w!("BUTTON"),
+                "Install for everyone on this PC (asks for administrator rights)",
+                BS_AUTOCHECKBOX | WS_TABSTOP.0,
+                ID_ALL_USERS,
+            );
             set_check(check, o.machine);
             check
         });
@@ -169,8 +209,26 @@ pub fn run(m: Manifest, payload: &'static [u8], o: Options, existing: Option<Exi
         let height = (92 + 22 + 40 + 26 * rows).max(170) + 16 + 30 + 20;
         let shield = o.machine && !sys::is_elevated();
         let ui = Ui {
-            hwnd, m, payload, o, existing, scale, height, state: State::Ready, title, subtitle,
-            dir_label, dir, browse, checks, all_users, status, progress, launch, ok, cancel,
+            hwnd,
+            m,
+            payload,
+            o,
+            existing,
+            scale,
+            height,
+            state: State::Ready,
+            title,
+            subtitle,
+            dir_label,
+            dir,
+            browse,
+            checks,
+            all_users,
+            status,
+            progress,
+            launch,
+            ok,
+            cancel,
         };
         set_shield(ok, shield);
         layout(&ui);
@@ -178,7 +236,12 @@ pub fn run(m: Manifest, payload: &'static [u8], o: Options, existing: Option<Exi
 
         // The window's size for the client area wanted, centred on the screen.
         let s = |v: i32| (v as f64 * scale).round() as i32;
-        let mut rect = RECT { left: 0, top: 0, right: s(WIDTH), bottom: s(height) };
+        let mut rect = RECT {
+            left: 0,
+            top: 0,
+            right: s(WIDTH),
+            bottom: s(height),
+        };
         let _ = AdjustWindowRectEx(&mut rect, style, false, WINDOW_EX_STYLE(0));
         let (w, h) = (rect.right - rect.left, rect.bottom - rect.top);
         let (sw, sh) = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
@@ -227,7 +290,11 @@ fn layout(ui: &Ui) {
     place(ui.subtitle, MARGIN, 58, inner, 20);
 
     let ready = ui.state == State::Ready;
-    for h in [ui.dir_label, ui.dir, ui.browse].into_iter().chain(ui.checks.iter().copied()).chain(ui.all_users) {
+    for h in [ui.dir_label, ui.dir, ui.browse]
+        .into_iter()
+        .chain(ui.checks.iter().copied())
+        .chain(ui.all_users)
+    {
         show(h, ready);
     }
     show(ui.status, !ready);
@@ -370,7 +437,13 @@ fn start() {
             return None;
         }
         ui.o.dir = dir;
-        ui.o.tasks = ui.m.tasks.iter().zip(&ui.checks).filter(|(_, c)| checked(**c)).map(|(t, _)| t.name.clone()).collect();
+        ui.o.tasks =
+            ui.m.tasks
+                .iter()
+                .zip(&ui.checks)
+                .filter(|(_, c)| checked(**c))
+                .map(|(t, _)| t.name.clone())
+                .collect();
         ui.o.machine = match ui.all_users {
             Some(c) => checked(c),
             None => ui.m.app.scope == Scope::Machine,
@@ -460,7 +533,9 @@ fn browse() {
 fn pick_folder(owner: HWND, current: &std::path::Path) -> Option<PathBuf> {
     unsafe {
         let dialog: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
-        dialog.SetOptions(dialog.GetOptions().ok()? | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM).ok()?;
+        dialog
+            .SetOptions(dialog.GetOptions().ok()? | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM)
+            .ok()?;
         if let Some(start) = current.ancestors().find(|p| p.is_dir())
             && let Ok(item) = SHCreateItemFromParsingName::<_, _, IShellItem>(&HSTRING::from(start), None)
         {

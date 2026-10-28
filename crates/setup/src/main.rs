@@ -32,9 +32,14 @@ pub struct Args {
 
 impl Args {
     fn parse() -> Args {
-        let mut args = Args { flags: HashSet::new(), params: HashMap::new() };
+        let mut args = Args {
+            flags: HashSet::new(),
+            params: HashMap::new(),
+        };
         for arg in std::env::args().skip(1) {
-            let Some(arg) = arg.strip_prefix('/').or_else(|| arg.strip_prefix('-')) else { continue };
+            let Some(arg) = arg.strip_prefix('/').or_else(|| arg.strip_prefix('-')) else {
+                continue;
+            };
             if let Some((name, value)) = arg.split_once('=') {
                 args.params.insert(name.to_uppercase(), value.to_string());
             } else {

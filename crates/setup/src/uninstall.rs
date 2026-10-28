@@ -27,7 +27,11 @@ pub fn main(args: &Args) -> i32 {
             Some(log) => {
                 install::uninstall(&log, &app);
                 if !quiet {
-                    sys::message(&format!("{} was removed from this PC.", log.name), &format!("Uninstall {}", log.name), MB_ICONINFORMATION);
+                    sys::message(
+                        &format!("{} was removed from this PC.", log.name),
+                        &format!("Uninstall {}", log.name),
+                        MB_ICONINFORMATION,
+                    );
                 }
                 0
             }
@@ -40,7 +44,10 @@ pub fn main(args: &Args) -> i32 {
     let Some(app) = me.parent().map(Path::to_path_buf) else { return 1 };
     let Some(log) = Log::read(&app) else {
         if !quiet {
-            sys::error(&format!("{} is missing, so this can't be uninstalled.", app.join(install::LOG).display()), "Uninstall");
+            sys::error(
+                &format!("{} is missing, so this can't be uninstalled.", app.join(install::LOG).display()),
+                "Uninstall",
+            );
         }
         return 1;
     };

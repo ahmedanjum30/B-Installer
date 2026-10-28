@@ -121,7 +121,9 @@ fn substitute(value: &mut toml::Value, defines: &BTreeMap<String, String>) -> Re
                 out.push_str(&rest[..start]);
                 let end = rest[start..].find('}').ok_or_else(|| format!("unclosed ${{ in \"{s}\""))?;
                 let name = &rest[start + 2..start + end];
-                let v = defines.get(name).ok_or_else(|| format!("${{{name}}} isn't defined (add it to [defines] or pass -D {name}=...)"))?;
+                let v = defines
+                    .get(name)
+                    .ok_or_else(|| format!("${{{name}}} isn't defined (add it to [defines] or pass -D {name}=...)"))?;
                 out.push_str(v);
                 rest = &rest[start + end + 1..];
             }
@@ -160,7 +162,10 @@ fn expand_each(m: &mut Manifest) -> Result<(), String> {
 }
 
 fn check_tasks(m: &Manifest) -> Result<(), String> {
-    let used = m.files.iter().map(|f| &f.task)
+    let used = m
+        .files
+        .iter()
+        .map(|f| &f.task)
         .chain(m.shortcuts.iter().map(|s| &s.task))
         .chain(m.registry.iter().map(|r| &r.task))
         .chain(m.path.iter().map(|p| &p.task))
@@ -188,14 +193,28 @@ fn collect(m: &Manifest, base: &Path) -> Result<Vec<(PathBuf, Packed)>, String> 
             for path in found {
                 let rel = path.strip_prefix(&source).unwrap().to_string_lossy().replace('/', "\\");
                 let size = fs::metadata(&path).map_err(|e| e.to_string())?.len();
-                out.push((path, Packed { dest: format!("{}\\{rel}", f.dest), size, task: f.task.clone() }));
+                out.push((
+                    path,
+                    Packed {
+                        dest: format!("{}\\{rel}", f.dest),
+                        size,
+                        task: f.task.clone(),
+                    },
+                ));
             }
         } else {
             let name = match &f.rename {
                 Some(name) => name.clone(),
                 None => source.file_name().unwrap().to_string_lossy().into_owned(),
             };
-            out.push((source, Packed { dest: format!("{}\\{name}", f.dest), size: meta.len(), task: f.task.clone() }));
+            out.push((
+                source,
+                Packed {
+                    dest: format!("{}\\{name}", f.dest),
+                    size: meta.len(),
+                    task: f.task.clone(),
+                },
+            ));
         }
     }
     Ok(out)

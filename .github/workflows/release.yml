@@ -1,0 +1,78 @@
+name: Release
+
+# Pushing a v* tag publishes bi.exe and bi-setup.exe as a GitHub release, in
+# B-Installer-x64.zip, for other projects' workflows to download instead of building
+# B-Installer themselves.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The same checks as CI. They run alongside the build; nothing is published unless both succeed.
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check the tag against Cargo.toml
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} doesn't match Cargo.toml's version $version" }
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          # No version in the name, so .../releases/latest/download/B-Installer-x64.zip works too.
+          Compress-Archive -Path target\release\bi.exe, target\release\bi-setup.exe, README.md -DestinationPath dist\B-Installer-x64.zip
+          Get-ChildItem dist -File | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content dist\SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [checks, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body: |
+            ## Use it in a workflow
+
+            ```yaml
+            - name: Install B-Installer
+              shell: pwsh
+              run: |
+                $dir = Join-Path $env:RUNNER_TEMP 'b-installer'
+                Invoke-WebRequest https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/B-Installer-x64.zip -OutFile "$dir.zip"
+                Expand-Archive "$dir.zip" $dir
+                Add-Content $env:GITHUB_PATH $dir
+            ```
+
+            Then `bi installer\app.toml -D version=...` in a later step.
+          generate_release_notes: true

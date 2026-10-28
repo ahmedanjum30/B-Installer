@@ -16,16 +16,16 @@ use windows::{
             LibraryLoader::{BeginUpdateResourceW, EndUpdateResourceW, FindResourceW, LoadResource, LockResource, SizeofResource, UpdateResourceW},
             Registry::*,
             Threading::{
-                GetCurrentProcess, GetCurrentProcessId, GetExitCodeProcess, INFINITE, OpenProcess, OpenProcessToken,
-                PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
-                QueryFullProcessImageNameW, TerminateProcess, WaitForSingleObject,
+                GetCurrentProcess, GetCurrentProcessId, GetExitCodeProcess, INFINITE, OpenProcess, OpenProcessToken, PROCESS_NAME_WIN32,
+                PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, QueryFullProcessImageNameW, TerminateProcess,
+                WaitForSingleObject,
             },
         },
         UI::{
             Shell::*,
             WindowsAndMessaging::{
-                HWND_BROADCAST, MB_ICONERROR, MESSAGEBOX_RESULT, MESSAGEBOX_STYLE, MessageBoxW, SMTO_ABORTIFHUNG,
-                SW_SHOWNORMAL, SendMessageTimeoutW, WM_SETTINGCHANGE,
+                HWND_BROADCAST, MB_ICONERROR, MESSAGEBOX_RESULT, MESSAGEBOX_STYLE, MessageBoxW, SMTO_ABORTIFHUNG, SW_SHOWNORMAL, SendMessageTimeoutW,
+                WM_SETTINGCHANGE,
             },
         },
     },
@@ -161,8 +161,13 @@ pub fn quote(arg: &str) -> String {
 pub fn close_apps_in(dir: &Path) {
     let prefix = format!("{}\\", dir.display().to_string().trim_end_matches('\\').to_lowercase());
     unsafe {
-        let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else { return };
-        let mut entry = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+        let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
+            return;
+        };
+        let mut entry = PROCESSENTRY32W {
+            dwSize: size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
         let mut more = Process32FirstW(snapshot, &mut entry).is_ok();
         while more {
             if entry.th32ProcessID != GetCurrentProcessId()
@@ -254,7 +259,17 @@ impl Drop for Key {
 fn create_key(root: HKEY, key: &str) -> Result<Key, String> {
     let mut h = HKEY::default();
     let status = unsafe {
-        RegCreateKeyExW(root, &HSTRING::from(key), None, PCWSTR::null(), REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, None, &mut h, None)
+        RegCreateKeyExW(
+            root,
+            &HSTRING::from(key),
+            None,
+            PCWSTR::null(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_ALL_ACCESS,
+            None,
+            &mut h,
+            None,
+        )
     };
     status.ok().map_err(|e| format!("{key}: {e}"))?;
     Ok(Key(h))
@@ -274,7 +289,9 @@ pub fn set_string(root: HKEY, key: &str, name: Option<&str>, value: &str, expand
     let k = create_key(root, key)?;
     let data: Vec<u8> = value.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
     let kind = if expand { REG_EXPAND_SZ } else { REG_SZ };
-    unsafe { RegSetValueExW(k.0, &name_arg(name), None, kind, Some(&data)) }.ok().map_err(|e| format!("{key}: {e}"))
+    unsafe { RegSetValueExW(k.0, &name_arg(name), None, kind, Some(&data)) }
+        .ok()
+        .map_err(|e| format!("{key}: {e}"))
 }
 
 pub fn set_dword(root: HKEY, key: &str, name: Option<&str>, value: u32) -> Result<(), String> {
@@ -290,7 +307,9 @@ pub fn get_string(root: HKEY, key: &str, name: Option<&str>) -> Option<String> {
     let mut size = 0u32;
     unsafe { RegQueryValueExW(k.0, &name, None, None, None, Some(&mut size)) }.ok().ok()?;
     let mut buf = vec![0u16; size as usize / 2 + 1];
-    unsafe { RegQueryValueExW(k.0, &name, None, None, Some(buf.as_mut_ptr().cast()), Some(&mut size)) }.ok().ok()?;
+    unsafe { RegQueryValueExW(k.0, &name, None, None, Some(buf.as_mut_ptr().cast()), Some(&mut size)) }
+        .ok()
+        .ok()?;
     buf.truncate(size as usize / 2);
     while buf.last() == Some(&0) {
         buf.pop();
@@ -320,7 +339,20 @@ pub fn prune(root: HKEY, key: &str) {
         let Some(k) = open_key(root, &key, KEY_READ) else { return };
         let (mut subkeys, mut values) = (0u32, 0u32);
         let ok = unsafe {
-            RegQueryInfoKeyW(k.0, None, None, None, Some(&mut subkeys), None, None, Some(&mut values), None, None, None, None)
+            RegQueryInfoKeyW(
+                k.0,
+                None,
+                None,
+                None,
+                Some(&mut subkeys),
+                None,
+                None,
+                Some(&mut values),
+                None,
+                None,
+                None,
+                None,
+            )
         }
         .is_ok();
         drop(k);

@@ -89,12 +89,20 @@ fn version_info(app: &format::App) -> Vec<u8> {
         ("ProductName", app.name.as_str()),
         ("ProductVersion", app.version.as_str()),
     ];
-    let table = strings.iter().filter(|(_, v)| !v.is_empty()).map(|(k, v)| node(k, Value::Text(v), &[])).collect::<Vec<_>>();
+    let table = strings
+        .iter()
+        .filter(|(_, v)| !v.is_empty())
+        .map(|(k, v)| node(k, Value::Text(v), &[]))
+        .collect::<Vec<_>>();
     let translation = [0x0409u16, 1200].iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<_>>();
-    node("VS_VERSION_INFO", Value::Binary(&fixed), &[
-        node("StringFileInfo", Value::None, &[node("040904B0", Value::None, &table)]),
-        node("VarFileInfo", Value::None, &[node("Translation", Value::Binary(&translation), &[])]),
-    ])
+    node(
+        "VS_VERSION_INFO",
+        Value::Binary(&fixed),
+        &[
+            node("StringFileInfo", Value::None, &[node("040904B0", Value::None, &table)]),
+            node("VarFileInfo", Value::None, &[node("Translation", Value::Binary(&translation), &[])]),
+        ],
+    )
 }
 
 enum Value<'a> {

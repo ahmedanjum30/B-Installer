@@ -1,8 +1,8 @@
 name: Release
 
-# Pushing a v* tag publishes bi.exe and bi-setup.exe as a GitHub release, in
-# B-Installer-x64.zip, for other projects' workflows to download instead of building
-# B-Installer themselves.
+# Pushing a v* tag publishes bi.exe and bi-setup.exe as a GitHub release, for other projects'
+# workflows to download instead of building B-Installer themselves. bi.exe needs bi-setup.exe
+# in the same folder.
 on:
   push:
     tags: ["v*"]
@@ -37,8 +37,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          # No version in the name, so .../releases/latest/download/B-Installer-x64.zip works too.
-          Compress-Archive -Path target\release\bi.exe, target\release\bi-setup.exe, README.md -DestinationPath dist\B-Installer-x64.zip
+          # No version in the names, so .../releases/latest/download/bi.exe works too.
+          Copy-Item target\release\bi.exe, target\release\bi-setup.exe dist
           Get-ChildItem dist -File | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content dist\SHA256SUMS.txt
@@ -68,9 +68,10 @@ jobs:
             - name: Install B-Installer
               shell: pwsh
               run: |
-                $dir = Join-Path $env:RUNNER_TEMP 'b-installer'
-                Invoke-WebRequest https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/B-Installer-x64.zip -OutFile "$dir.zip"
-                Expand-Archive "$dir.zip" $dir
+                $dir = New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP 'b-installer')
+                foreach ($exe in 'bi.exe', 'bi-setup.exe') {
+                  Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$exe" -OutFile "$dir\$exe"
+                }
                 Add-Content $env:GITHUB_PATH $dir
             ```
 
